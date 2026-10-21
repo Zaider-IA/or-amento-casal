@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zelo - gerar chaves dos avisos</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:20px;line-height:1.45;color:#111}
+h1{font-size:22px} button{padding:14px 18px;border:0;border-radius:999px;background:#622DBB;color:#fff;font-size:16px;font-weight:600;width:100%;margin:10px 0}
+textarea{width:100%;min-height:150px;font:13px monospace;padding:10px;border:1px solid #ccc;border-radius:12px;box-sizing:border-box}
+.b{background:#f3f4f6;border-radius:14px;padding:12px;margin:14px 0} small{color:#555}
+</style></head><body>
+<h1>Chaves dos avisos do Zelo</h1>
+<p>As chaves são criadas aqui, no seu aparelho. Nada é enviado para a internet.</p>
+<button id="g">Gerar chaves</button>
+<div id="out" hidden>
+ <div class="b"><b>1) Rode no SQL Editor do Supabase</b><br><small>Toque no texto, copie tudo e cole.</small>
+ <textarea id="sql" readonly></textarea></div>
+ <div class="b"><b>2) Cadastre em Edge Functions → Secrets</b><br><small>Um por linha: nome = valor.</small>
+ <textarea id="sec" readonly></textarea></div>
+ <p><small>Guarde a chave privada só no Supabase. Depois de usar, apague este arquivo (chaves.html) do GitHub.</small></p>
+</div>
+<script>
+const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const un = s => Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+document.getElementById('g').onclick = async () => {
+  const kp = await crypto.subtle.generateKey({ name:'ECDSA', namedCurve:'P-256' }, true, ['sign','verify']);
+  const jwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
+  const pub = new Uint8Array([4, ...un(jwk.x), ...un(jwk.y)]);
+  const publica = b64u(pub), privada = jwk.d;
+  const chave = [...crypto.getRandomValues(new Uint8Array(24))].map(x => x.toString(16).padStart(2,'0')).join('');
+  document.getElementById('sql').value =
+`insert into public.app_config (key, value) values ('vapid_public', '${publica}')
+on conflict (key) do update set value = excluded.value;
+
+insert into public.app_secrets (key, value) values ('zelo_key', '${chave}')
+on conflict (key) do update set value = excluded.value;`;
+  document.getElementById('sec').value =
+`ZELO_KEY=${chave}
+VAPID_PUBLIC=${publica}
+VAPID_PRIVATE=${privada}
+VAPID_SUBJECT=mailto:SEU-EMAIL@exemplo.com`;
+  document.getElementById('out').hidden = false;
+};
+</script></body></html>
