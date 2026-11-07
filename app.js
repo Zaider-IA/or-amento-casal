@@ -1,5 +1,6 @@
 /* ===== js/base.js ===== */
 /* Base: conexão, estado, utilitários de data/texto, ícones e cálculo dos feriados */
+const APP_VERSAO = '8 · 06/11/2026';
 const db = supabase.createClient(CFG.url, CFG.key);
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -145,7 +146,7 @@ function pendencias(){
   }
   S.faltas.filter(f=>f.data>=hoje&&!f.cobertura_id).forEach(f=>L.push({t:`Falta sem cobertura: ${nome(f.funcionario_id)} em ${dm(f.data)}`,ir:()=>{S.month=f.data.slice(0,7);S.tab='faltas'}}));
   const pend=at.map(e=>[e,pendSaldo(e.id)]).filter(x=>x[1]>0);
-  if(pend.length)L.push({t:'Horas devidas pendentes: '+pend.map(([e,h])=>e.nome+' '+fh(h)).join(', '),ir:()=>{S.tab='resumo'}});
+  if(pend.length)L.push({t:'Horas devidas pendentes: '+pend.map(([e,h])=>e.nome+' '+fh(h)).join(', '),ir:()=>{S.tab='horasdev'}});
   return L;
 }
 
@@ -226,8 +227,8 @@ function modal(title, body, onSave, label){
 }
 const opts = (list, sel) => list.map(([v,t]) => `<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(t)}</option>`).join('');
 const NAV=[['inicio','Início','home'],['escala','Escala','cal'],['faltas','Faltas','clip'],['func','Equipe','users'],['mais','Mais','more']];
-const SUB={feriados:'Feriados',resumo:'Relatório',conta:'Minha conta',sabados:'Escala dos sábados',ponto:'Folha de ponto',relper:'Relatório por período',design:'Design',ferescala:'Escala dos feriados',saldo:'Saldo de folgas',saldoemp:'Extrato de folgas',historico:'Histórico',backup:'Backup'};
-const BACK={sabados:['escala','Escala'],ponto:['func','Equipe'],relper:['resumo','Relatório'],saldoemp:['saldo','Saldo de folgas']};
+const SUB={horasdev:'Horas devidas',feriados:'Feriados',resumo:'Relatório',conta:'Minha conta',sabados:'Escala dos sábados',ponto:'Folha de ponto',relper:'Relatório por período',design:'Design',ferescala:'Escala dos feriados',saldo:'Saldo de folgas',saldoemp:'Extrato de folgas',historico:'Histórico',backup:'Backup'};
+const BACK={horasdev:['inicio','Início'],sabados:['escala','Escala'],ponto:['func','Equipe'],relper:['resumo','Relatório'],saldoemp:['saldo','Saldo de folgas']};
 const bind = {};
 function hdr(t,sub,u){
   const dt=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
@@ -239,7 +240,7 @@ function hdr(t,sub,u){
 }
 function render(){
   const t=S.tab, sub=SUB[t], nav=BACK[t]&&NAV.some(n=>n[0]===BACK[t][0])?BACK[t][0]:sub?'mais':t, u=(S.user&&S.user.user_metadata)||{};
-  const V={inicio:vInicio,escala:vEscala,faltas:vFaltas,func:vFunc,mais:vMais,feriados:vFeriados,resumo:vResumo,conta:vConta,sabados:vSabados,ponto:vPonto,relper:vRelPer,design:vDesign,ferescala:vFerEscala,saldo:vSaldo,saldoemp:vSaldoEmp,historico:vHistorico,backup:vBackup};
+  const V={inicio:vInicio,escala:vEscala,faltas:vFaltas,func:vFunc,mais:vMais,feriados:vFeriados,resumo:vResumo,conta:vConta,sabados:vSabados,ponto:vPonto,relper:vRelPer,design:vDesign,ferescala:vFerEscala,saldo:vSaldo,saldoemp:vSaldoEmp,horasdev:vHorasDev,historico:vHistorico,backup:vBackup};
   $('#app').innerHTML=`${hdr(t,sub,u)}
   <main>${V[t]()}</main>${(t==='faltas'||t==='func')?'<button class="fab" id="fab">+</button>':''}
   <nav class="bn">${NAV.map(([k,n,i])=>`<button class="${nav===k?'on':''}" data-t="${k}"><i>${ic(i)}</i>${n}</button>`).join('')}</nav>`;
@@ -288,7 +289,7 @@ function vInicio(){
   const prox=Object.entries(H).filter(([d])=>d>k).sort()[0],pd=pendencias();
   const qk=(q,i,t,d)=>`<button class="qk" data-q="${q}"><span class="qi">${ic(i)}</span><b>${t}</b><small>${d}</small><span class="chv">${ic('chev')}</span></button>`;
   return `<div class="qa">${qk('falta','user','Registrar falta','Marque a ausência de um colaborador')}${qk('emp','uplus','Novo funcionário','Cadastre um novo colaborador')}${qk('escala','cal','Ver escala','Confira a escala da equipe')}${qk('resumo','chart','Relatório','Acompanhe os resultados do mês')}</div>
-  <div class="stats"><div class="stat u1">${ic('cal')}<b>${trab}</b>trabalham hoje</div><div class="stat u2">${ic('alert')}<b>${fal}</b>faltas hoje</div><div class="stat u3">${ic('clock')}<b>${fh(pend)}</b>horas devidas</div></div>
+  <div class="stats"><div class="stat u1">${ic('cal')}<b>${trab}</b>trabalham hoje</div><div class="stat u2">${ic('alert')}<b>${fal}</b>faltas hoje</div><div class="stat u3" data-hd="1" style="cursor:pointer">${ic('clock')}<b>${fh(pend)}</b>horas devidas</div></div>
   ${pd.length?`<div class="card"><b>Pendências</b>${pd.slice(0,6).map((p,i)=>`<div class="it" data-pd="${i}"><span class="hi" style="color:var(--warn)">${ic('alert')}</span><div class="grow">${esc(p.t)}</div><span class="chv">${ic('chev')}</span></div>`).join('')}</div>`:''}
   <div class="card"><div class="row" style="margin:0 0 4px"><span class="hi">${ic('cal')}</span><b class="grow" style="font-size:18px">Hoje</b><a class="lk" id="vt">Ver toda a escala ${ic('chev')}</a></div>${H[k]?banFer(k,H[k]):''}${at.filter(e=>rel(e,k)).map(e=>item(e,k)).join('')||'<p class="mut">Ninguém escalado hoje.</p>'}</div>
   ${prox?`<div class="card"><b>Próximo feriado</b>${esc(prox[1])} · ${fmt(prox[0])}</div>`:''}`;
@@ -296,12 +297,13 @@ function vInicio(){
 bind.inicio=()=>{
   document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{const q=b.dataset.q;if(q==='falta')faltaForm(null);else if(q==='emp')empForm(null);else{S.tab=q;render()}});
   document.querySelectorAll('.it[data-e]').forEach(l=>l.onclick=()=>empForm(S.emps.find(e=>e.id===l.dataset.e)));
+  document.querySelectorAll('[data-hd]').forEach(b=>b.onclick=()=>{S.tab='horasdev';render();scrollTo(0,0)});
   if($('#vt'))$('#vt').onclick=()=>{S.tab='escala';render()};
   document.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>{pendencias()[+b.dataset.pd].ir();render();scrollTo(0,0)});
 };
 function vMais(){
   return `<div class="card">${[['sabados','cal','Escala dos sábados','Planeje o mês inteiro'],['ferescala','star','Escala dos feriados','Aberto, fechado ou horário especial'],['feriados','star','Feriados','Nacionais e extras'],['saldo','cal','Saldo de folgas','Dias de folga de cada um, com anotações'],['resumo','chart','Relatório','Tudo do mês para os donos'],['historico','history','Histórico','Veja e restaure o que foi apagado'],['backup','download','Backup','Baixe ou restaure todos os dados'],['design','palette','Design','Cores, foto de topo e logo'],['conta','user','Minha conta','Perfil, senha e instalar app']].map(([k,i,t,d],n)=>`<div class="it" data-go="${k}"><div class="av">${ic(i)}</div><div class="grow"><b>${t}</b><br><small>${d}</small></div>${ic('chev')}</div>`).join('')}
-  <div class="it" id="so"><div class="av t4">${ic('out')}</div><div class="grow"><b>Sair</b></div></div></div>`;
+  <div class="it" id="so"><div class="av t4">${ic('out')}</div><div class="grow"><b>Sair</b></div></div></div><p class="mut" style="text-align:center;margin:10px 0 0"><small>Versão ${APP_VERSAO}</small></p>`;
 }
 bind.mais=()=>{
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.go;render();scrollTo(0,0)});
@@ -464,12 +466,6 @@ function empForm(e){
 /* ===== js/tela-faltas.js ===== */
 /* Tela: Faltas, atestados e anexos */
 const avisoV5=()=>S.v5Erro?'<div class="card"><b>Falta uma atualização no banco</b><small>Rode a migração 005 no Supabase (SQL Editor) para registrar o pagamento das horas devidas. O passo a passo está no README.</small></div>':'';
-function pagCard(){
-  const deve=S.emps.map(e=>[e,pendSaldo(e.id)]).filter(x=>x[1]>0),pg=(S.pagH||[]).filter(p=>p.data.startsWith(S.month)).sort((a,b)=>b.data.localeCompare(a.data));
-  if(!deve.length&&!pg.length)return '';
-  return `${deve.length?avisoV5():''}<div class="card"><b>Horas devidas</b>${deve.map(([e,h])=>`<div class="row" style="margin:8px 0 0"><div class="grow"><b>${esc(e.nome)}</b><br><small>Deve ${fh(h)}</small></div><button class="ghost sm" data-pg="${e.id}">Registrar pagamento</button></div>`).join('')||'<p class="mut" style="margin:6px 0 0"><small>Ninguém está devendo horas.</small></p>'}
-  ${pg.length?`<div style="margin-top:14px"><b>Pagamentos de ${mesNome(S.month)}</b>${pg.map(p=>`<div data-pgi="${p.id}" style="cursor:pointer;padding:10px 0;border-top:1px solid var(--line)"><div class="row" style="margin:0"><b class="grow">${esc(nome(p.funcionario_id))} · ${fmt(p.data)}</b><span class="tag ok">Pagou ${fh(+p.horas)}</span></div>${p.entrada&&p.saida?`<small>Chegou ${hhmm(p.entrada)} · saiu ${hhmm(p.saida)}</small>`:''}${p.observacao?`<br><small class="mut">${esc(p.observacao)}</small>`:''}</div>`).join('')}</div>`:''}</div>`;
-}
 function pagForm(empId,p){
   if(S.v5Erro)return alert('Para registrar pagamentos, rode a migração 005 no Supabase (veja o README).');
   const ativos=S.emps.filter(e=>e.ativo||e.id===empId||(p&&e.id===p.funcionario_id)).map(e=>[e.id,e.nome]);
@@ -503,7 +499,6 @@ function vFaltas(){
   const horasTxt=f=>{if(!(+f.horas_devidas>0))return '';const x=pm.get(f.id);
     return `<div style="margin-top:6px">Deve ${f.horas_devidas}h ${f.horas_quitadas?'<span class="tag ok">quitadas</span>':!x?'<span class="tag ok">pagas</span>':x.pago>0?`<span class="tag warn">restam ${fh(x.restante)}</span> <small class="mut">já pagou ${fh(x.pago)}</small>`:'<span class="tag warn">pendentes</span>'}</div>`};
   return `<div class="card" style="padding:10px"><input type="month" id="mm" value="${S.month}"></div>
-  ${pagCard()}
   ${l.map(f=>`<div class="card tint soft ${f.atestado?'t1':'t4'}" data-f="${f.id}" style="cursor:pointer"><div class="row" style="margin:0"><b class="grow" style="margin:0">${esc(nome(f.funcionario_id))}</b><span class="tag ${f.atestado?'ok':'bad'}">${f.atestado?'Com atestado':'Sem atestado'}</span></div>
   <small>${fmt(f.data)} · ${esc(f.motivo)}</small>
   ${horasTxt(f)}
@@ -511,11 +506,6 @@ function vFaltas(){
 }
 bind.faltas=()=>{
   $('#mm').onchange=e=>{S.month=e.target.value||S.month;render()};
-  document.querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>pagForm(b.dataset.pg));
-  document.querySelectorAll('[data-pgi]').forEach(c=>c.onclick=()=>{
-    const p=S.pagH.find(x=>x.id===c.dataset.pgi);if(!p)return;
-    sheet(esc(nome(p.funcionario_id))+' · '+fmt(p.data),[['Editar',()=>pagForm(p.funcionario_id,p)],['Apagar pagamento',async()=>{if(!confirm('Apagar este pagamento? As horas voltam a ficar devidas. Dá para restaurar em Mais > Histórico.'))return;await logar('apagou','pagamento_horas',`Pagamento de ${fh(+p.horas)} de ${nome(p.funcionario_id)} em ${fmt(p.data)}`,{pagamentos:[p]});await ck(db.from('pagamentos_horas').delete().eq('id',p.id));load()},'red']]);
-  });
   document.querySelectorAll('[data-f]').forEach(c=>c.onclick=()=>{
     const f=S.faltas.find(x=>x.id===c.dataset.f),b=[...((f.anexos||[]).length?[['Ver atestado / anexos',()=>verAnexos(f)]]:[]),['Editar',()=>faltaForm(f)]];
     if(+f.horas_devidas>0)b.push([f.horas_quitadas?'Reabrir horas':'Marcar horas como quitadas',async()=>{await ck(db.from('faltas').update({horas_quitadas:!f.horas_quitadas}).eq('id',f.id));load()}]);
@@ -582,6 +572,26 @@ function faltaForm(f){
   };
   d.querySelector('[name="at"]').onchange=mostra;d.querySelector('[name="mo"]').onchange=mostra;mostra();
 }
+
+/* Tela: Horas devidas (todos que devem, de qualquer mês; registrar pagamentos) */
+function vHorasDev(){
+  const deve=S.emps.map(e=>[e,pendFaltas(e.id)]).filter(x=>x[1].length),tot=pendSaldo();
+  const pgDe=id=>(S.pagH||[]).filter(p=>p.funcionario_id===id).sort((a,b)=>b.data.localeCompare(a.data)||String(b.criado_em).localeCompare(String(a.criado_em)));
+  const pgHtml=l=>l.map(p=>`<div data-pgi="${p.id}" style="cursor:pointer;padding:9px 0;border-top:1px solid var(--line)"><div class="row" style="margin:0"><b class="grow">${fmt(p.data)}</b><span class="tag ok">Pagou ${fh(+p.horas)}</span></div>${p.entrada&&p.saida?`<small>Chegou ${hhmm(p.entrada)} · saiu ${hhmm(p.saida)}</small>`:''}${p.observacao?`<br><small class="mut">${esc(p.observacao)}</small>`:''}</div>`).join('');
+  const pessoa=([e,fs])=>{const pg=pgDe(e.id);return `<div class="card"><div class="row" style="margin:0"><div class="grow"><b style="font-size:17px">${esc(e.nome)}</b><br><small>Deve <b>${fh(fs.reduce((s,f)=>s+f.restante,0))}</b></small></div><button class="sm" data-pg="${e.id}">Registrar pagamento</button></div>
+    <div style="margin-top:10px"><small class="mut">Faltas com horas a pagar</small>${fs.map(f=>`<div style="padding:9px 0;border-top:1px solid var(--line)"><div class="row" style="margin:0"><b class="grow">${fmt(f.data)} - ${esc(f.motivo)}</b><span class="tag warn">Deve ${fh(f.restante)}</span></div><small>${f.cobertura_id?'Coberto por '+esc(nome(f.cobertura_id)):'Sem cobertura'}${f.pago>0?` · já pagou ${fh(f.pago)} de ${fh(f.total)}`:''}</small>${f.observacao?`<br><small class="mut">${esc(f.observacao)}</small>`:''}</div>`).join('')}</div>
+    ${pg.length?`<div style="margin-top:10px"><small class="mut">Pagamentos já feitos${pg.length>8?' (últimos 8)':''}</small>${pgHtml(pg.slice(0,8))}</div>`:''}</div>`};
+  const ult=(S.pagH||[]).filter(p=>!deve.some(x=>x[0].id===p.funcionario_id)).sort((a,b)=>b.data.localeCompare(a.data)).slice(0,10);
+  return `${avisoV5()}${deve.length?`<div class="card"><b>Total devido: ${fh(tot)}</b><p class="mut" style="margin:2px 0 0"><small>${deve.length} ${deve.length===1?'pessoa deve':'pessoas devem'} horas, de qualquer mês. Toque em Registrar pagamento para descontar o que já pagou.</small></p></div>${deve.map(pessoa).join('')}`:'<div class="card mut">Ninguém está devendo horas.</div>'}
+  ${ult.length?`<div class="card"><b>Pagamentos de quem já quitou</b>${ult.map(p=>`<div data-pgi="${p.id}" style="cursor:pointer;padding:9px 0;border-top:1px solid var(--line)"><div class="row" style="margin:0"><b class="grow">${esc(nome(p.funcionario_id))} · ${fmt(p.data)}</b><span class="tag ok">Pagou ${fh(+p.horas)}</span></div>${p.observacao?`<small class="mut">${esc(p.observacao)}</small>`:''}</div>`).join('')}</div>`:''}`;
+}
+bind.horasdev=()=>{
+  document.querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>pagForm(b.dataset.pg));
+  document.querySelectorAll('[data-pgi]').forEach(c=>c.onclick=()=>{
+    const p=S.pagH.find(x=>x.id===c.dataset.pgi);if(!p)return;
+    sheet(esc(nome(p.funcionario_id))+' · '+fmt(p.data),[['Editar',()=>pagForm(p.funcionario_id,p)],['Apagar pagamento',async()=>{if(!confirm('Apagar este pagamento? As horas voltam a ficar devidas. Dá para restaurar em Mais > Histórico.'))return;await logar('apagou','pagamento_horas',`Pagamento de ${fh(+p.horas)} de ${nome(p.funcionario_id)} em ${fmt(p.data)}`,{pagamentos:[p]});await ck(db.from('pagamentos_horas').delete().eq('id',p.id));load()},'red']]);
+  });
+};
 
 /* ===== js/tela-feriados.js ===== */
 /* Telas: Feriados e Escala dos feriados */
